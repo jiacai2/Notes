@@ -1,0 +1,69 @@
+# To Friends Troubled by Intel VMD (Volume Management Device) / Intel RST (Rapid Storage Technology) / Intel Optane Memory / Intel CAS (Cache Acceleration Software)
+
+This article summarizes my repeated struggles, written on March 16, 2025. Current Windows 11 system version is 24H2. Hardware configuration: Intel 13th Gen CPU, Z790 motherboard.
+
+## Conclusion
+
+For Windows RAID scenarios, **when budget allows, always prioritize purchasing dedicated RAID cards over VMD+RST**. For HDD acceleration needs, avoid VMD/RST/CAS and use **PrimoCache** instead.
+
+## Background
+
+My attempt to locally deploy DeepSeek-R1 failed due to insufficient VRAM/RAM. After combining Ktransformer and unsloth solutions, I deployed MLA layers on 22GB VRAM, hot expert groups in RAM, and cold expert groups on RAID/Optane storage. However, the 2080ti's lack of marlin operators required by kt resulted in poor performance.
+
+Returning to RAID: On Windows, software RAID (Disk Manager's Striped Volume) performs worst, Intel chipset VMD-controlled RAID performs slightly better, while dedicated RAID cards deliver optimal performance. However, RAID cards are expensive, sometimes forcing us to use Intel VMD.
+
+Intel's consumer storage/memory acceleration solutions are essentially a mess:
+- **CAS** originated around 2009, EOL'd on Feb 6, 2023, with partial features integrated into RST
+- **Intel Optane Memory** launched in 2017, product line terminated in August 2022
+- Only **VMD** remains in active consumer products
+
+## Enabling VMD During Fresh Windows 11 Installation
+
+**Final warning: Intel VMD is problematic. Buy a RAID card if possible!**  
+Even single PCIe4.0/5.0 NVMe drives under RST may lose up to 10% performance. Avoid VMD if possible!
+
+1. Download RST driver from motherboard website. Extract the package, find the EXE (e.g., SetupRST.exe v20.0.0.1038). Copy the EXE, change its extension to ZIP, and extract to "SetupRST" folder containing iaStorVD.inf. Place both EXE and folder in U盘Driver. Shut down.
+
+   - **Critical!** Remove all Optane drives (especially M10/H10/H20) before proceeding. Since RST v19.0 (Jan 2021), these drivers block system installation if Optane drives are detected.
+   - **Critical 2!** Disconnect existing RAID arrays (including Windows Striped Volumes) before installation.
+
+2. Enter BIOS (spam DEL), enable VMD (might be labeled RST/Optane support). Disable CSM, enable UEFI only. Set UEFI USB boot priority. Save & reboot.
+
+3. Proceed with Windows 11 installation. At disk selection screen (no disks visible), load driver from SetupRST folder. If successful, format target drive and continue.
+
+   - If disks remain invisible or errors occur: Disable VMD in BIOS and follow next section's "Enabling VMD on Existing Windows 11".
+   - Alternative: Use uupdump.net to create updated Windows 11 Pro ISO, inject RST drivers via NTLite, then create bootable USB via Rufus.
+
+4. After installation, complete Windows Update. Run SetupRST.exe to install Intel RST.
+
+5. Shut down. Reconnect Optane drives and RAID disks. Create/manage RAID groups via RST.
+
+## Enabling VMD on Existing Windows 11
+
+**Third warning: Intel VMD is problematic. Buy a RAID card if possible!**  
+If you still insist:
+
+1. Download Dism++ from GitHub and extract.
+2. Prepare RST drivers as described previously (extract EXE to SetupRST folder).
+3. Run Dism++x64.exe → Drivers → Add → Select SetupRST folder. Confirm driver installation. Shut down.
+4. Enter BIOS, enable VMD, save & reboot.
+5. Best case: Boot normally. Most will get "disk not found" BSOD. Force shutdown 3-4 times to enter recovery → Advanced → Safe Mode with Networking.
+6. If login screen appears (even with MS account issues), reboot normally.
+7. Complete Windows Update → Install SetupRST.exe.
+8. Shutdown, reconnect all your drives, and manage RAID via RST app.
+
+   - If still failing: Try updating/installing RST in Safe Mode.
+   - Last resort: Use PE tools to inject RST drivers (beware of malware in third-party PE tools).
+
+## Configuring Intel RST App
+
+- **Creating RAID**: Configure via BIOS or RST app. **Warning**: All data will be destroyed during RAID creation/dismantling.
+  
+- **Optane Acceleration**: Discontinued. Use **PrimoCache** with Optane as regular SSD for HDD acceleration.
+
+- **CAS Consideration**: Abandoned. Partial features exist in RST app but remain buggy. For acceleration needs:
+  - **PrimoCache** (recommended)
+  - **Open Cache Acceleration Software** (open-source CAS alternative)
+
+Finally, thank you for reading. May you avoid Intel VMD's pitfalls. Farewell.
+```
